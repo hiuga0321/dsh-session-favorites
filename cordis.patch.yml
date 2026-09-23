@@ -1,0 +1,6 @@
+# 会话收藏夹：纯增量 insert，不关闭任何官方服务。
+# 收藏是全新数据，宿主服务自带 storageDomain 持久化与运行时 Typert 远程，
+# 无需接管官方 workspace/session-projection-cache。
+- insert:
+    - id: session-favorites
+      name: 'dsh-session-favorites'

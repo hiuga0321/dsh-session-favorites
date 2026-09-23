@@ -1,0 +1,38 @@
+# 依赖
+node_modules/
+
+# 构建产物 / 缓存
+lib/
+dist/
+build/
+out/
+coverage/
+.cache/
+.turbo/
+.vite/
+*.tsbuildinfo
+
+# 测试与调试输出
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+
+# DSH 本地环境（本仓库是 link: 安装的插件源码，profile 状态不入库）
+.dsh/
+.dsh-*
+*.bak
+*.bak-*
+cordis.patch.yml.bak*
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
