@@ -34,19 +34,34 @@ window.__ModuleLoader__.load({
 .dsf_triggerLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dsf_triggerCount { flex: none; margin-left: auto; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
 .dsf_icon { flex: none; display: inline-flex; align-items: center; justify-content: center; }
-.dsf_panel { position: fixed; z-index: 30; display: flex; flex-direction: column; width: 320px; max-width: calc(100vw - 24px); max-height: 60vh; overflow: hidden; border: 0; border-radius: 12px; background: var(--dsw-specific-menu); --dsw-elevation-stroke-color: var(--dsw-alias-border-l1); box-shadow: var(--dsw-elevation-prominent); --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); }
-.dsf_header { flex: none; display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 10px 12px; box-sizing: border-box; }
-.dsf_title { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--dsw-alias-label-primary); }
+/* 弹出层 = 0.1.7 的菜单卡：卡片本身只负责定位与内边距（4px，与 Menu.module.css 的
+   .list 一致），真正的面色由 .dsf_panelMaterial 这一层画。
+   这是 0.1.7 的关键变化：--dsw-specific-menu / --dsw-menu-surface-fill 变成了**半透明**
+   色（浅色 rgba(248,249,250,.58) / 深色 rgba(67,69,74,.45)），只有配合
+   --dsw-menu-backdrop-filter 的 40px 模糊才成立（见 ui-primitives/MenuSurface.module.css）。
+   0.1.5 时代这个 token 是不透明的，直接铺在卡片上没问题；0.1.7 直接铺就会变成
+   "透出侧边栏内容"的灰玻璃 —— 这里把面色独立成层并显式给出模糊与回退，
+   两个版本都能得到正确的观感（旧版取 --dsw-specific-menu，新版取 menu-surface-fill）。 */
+.dsf_panel { position: fixed; z-index: 30; isolation: isolate; box-sizing: border-box; display: flex; flex-direction: column; width: 320px; max-width: calc(100vw - 24px); max-height: 60vh; padding: 4px; border: 0; border-radius: var(--dsw-radius-lg, 12px); background: transparent; --dsw-elevation-stroke-color: var(--dsw-alias-border-l1); box-shadow: var(--dsw-elevation-prominent, 0 0 0 0.5px var(--dsw-alias-border-l1), 0 3px 8px rgba(0, 0, 0, 0.04)); --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); }
+/* 面色层：z-index:-1 + pointer-events:none，只画背景（与原生 .material 同构）。
+   回退链：0.1.7 的菜单面色（半透明+模糊）→ 0.1.5 的不透明菜单色（模糊变量此时
+   不存在，backdrop-filter 取 none，与旧版观感一致）→ 主题层 l2。 */
+.dsf_panelMaterial { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--dsw-menu-surface-fill, var(--dsw-specific-menu, var(--dsw-alias-bg-layer-2))); backdrop-filter: var(--dsw-menu-backdrop-filter, none); -webkit-backdrop-filter: var(--dsw-menu-backdrop-filter, none); pointer-events: none; }
+.dsf_header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; padding: 8px 8px 6px 10px; box-sizing: border-box; }
+.dsf_title { font-size: 13px; font-weight: 500; line-height: 20px; color: var(--dsw-alias-label-primary); }
 .dsf_headerButton { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: none; border-radius: 999px; corner-shape: round; background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
 .dsf_headerButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }
-.dsf_search { box-sizing: border-box; display: flex; align-items: center; gap: 0; height: 32px; margin: 0 12px 8px; padding: 0 4px 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; }
+.dsf_search { box-sizing: border-box; display: flex; align-items: center; gap: 0; height: 32px; margin: 2px 4px 6px; padding: 0 4px 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 12px); background: transparent; }
+.dsf_search:focus-within { border-color: var(--dsw-alias-border-l3); }
 .dsf_searchInput { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; line-height: 18px; }
 .dsf_searchInput::placeholder { color: var(--dsw-alias-label-tertiary); }
 .dsf_clearButton { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; padding: 0; border: none; border-radius: 50%; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .dsf_clearButton:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.dsf_body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px; }
-.dsf_group { margin: 8px 0; font-size: 11px; font-weight: 500; line-height: 16px; color: var(--dsw-alias-label-caption); text-transform: uppercase; letter-spacing: 0.04em; }
-.dsf_row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: none; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; line-height: 20px; text-align: left; cursor: pointer; }
+.dsf_body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 4px 4px; }
+/* 分组标题：对齐原生菜单的 .label（11px / tertiary / padding 6px 8px），
+   不再用 uppercase + letter-spacing —— 0.1.7 的菜单标题就是普通大小写。 */
+.dsf_group { padding: 6px 8px 2px; font-size: 11px; font-weight: 500; line-height: 15px; color: var(--dsw-alias-label-tertiary); }
+.dsf_row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 6px 8px; border: none; border-radius: var(--dsw-radius-md, 12px); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; line-height: 20px; text-align: left; cursor: pointer; }
 .dsf_row:hover { background: var(--dsw-alias-interactive-bg-hover); }
 /* 选中态 = 当前正在查看的会话。原生 .sessionRow.selected 用的是 hover 一档，这里取
    更重的 active 一档，否则与 :hover 无法区分；带 hover 回退以兼容旧主题。 */
@@ -60,7 +75,7 @@ window.__ModuleLoader__.load({
 .dsf_row:hover .dsf_rowActions, .dsf_row:focus-within .dsf_rowActions { display: inline-flex; }
 /* 失效行的会话已不存在，重命名无从谈起；删除也走"清理"横幅。 */
 .dsf_rowGone .dsf_rowActions { display: none; }
-.dsf_rowAction { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; height: 20px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
+.dsf_rowAction { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; height: 20px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--dsw-alias-menu-icon, var(--dsw-alias-label-tertiary)); cursor: pointer; }
 .dsf_rowAction:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .dsf_rowActionDanger:hover { color: var(--dsw-alias-state-error-primary); }
 .dsf_rowGone { opacity: 0.55; cursor: default; }
@@ -70,11 +85,11 @@ window.__ModuleLoader__.load({
    .dsf_modal = .dialog（r24 / bg-layer-2 / elevation-prominent / pb 24 / width min(380px,100%)）。 */
 .dsf_modalLayer { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .dsf_modalMask { position: absolute; inset: 0; background: var(--dsw-alias-bg-mask-1); backdrop-filter: var(--dsw-mask-blur); }
-.dsf_modal { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 20px; width: min(380px, 100%); padding: 0 0 24px; overflow: hidden; border: 0; border-radius: 24px; background: var(--dsw-alias-bg-layer-2); box-shadow: var(--dsw-elevation-prominent); }
+.dsf_modal { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 20px; width: min(380px, 100%); padding: 0 0 24px; overflow: hidden; border: 0; border-radius: var(--dsw-radius-xl, 24px); background: var(--dsw-alias-bg-layer-2); box-shadow: var(--dsw-elevation-prominent, 0 3px 8px rgba(0, 0, 0, 0.04)); }
 .dsf_modalContent { display: flex; flex-direction: column; width: 100%; }
 .dsf_modalHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 22px 14px 12px 24px; }
 .dsf_modalTitle { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; color: var(--dsw-alias-label-primary); }
-.dsf_modalClose { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+.dsf_modalClose { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; border-radius: var(--dsw-radius-sm, 8px); background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .dsf_modalClose:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .dsf_modalDesc { margin: 0; padding: 0 24px; font-size: 14px; line-height: 22px; font-weight: 400; color: var(--dsw-alias-label-primary); }
 .dsf_modalBody { display: flex; flex-direction: column; min-width: 0; margin-top: 20px; padding: 0 24px; }
@@ -94,15 +109,16 @@ window.__ModuleLoader__.load({
 .dsf_modalButtonPrimary:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); }
 /* 破坏性操作：与原生 .deleteAction 一致，仅改文字色。 */
 .dsf_modalButtonDanger:not(:disabled) { color: var(--dsw-alias-state-error-primary); }
-.dsf_badge { flex: none; padding: 0 6px; border-radius: 8px; background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-size: 11px; line-height: 16px; }
-.dsf_badgeMuted { flex: none; padding: 0 6px; border-radius: 8px; background: var(--dsw-alias-button-ghost-active-fill); color: var(--dsw-alias-label-caption); font-size: 11px; line-height: 16px; }
-.dsf_banner { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 12px 8px; padding: 6px 8px; border-radius: 8px; background: var(--dsw-alias-interactive-bg-hover); }
+.dsf_badge { flex: none; padding: 0 6px; border-radius: var(--dsw-radius-sm, 8px); background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-size: 11px; line-height: 16px; }
+.dsf_badgeMuted { flex: none; padding: 0 6px; border-radius: var(--dsw-radius-sm, 8px); background: var(--dsw-alias-button-ghost-active-fill); color: var(--dsw-alias-label-caption); font-size: 11px; line-height: 16px; }
+/* 横幅与搜索框同宽：卡片内已有 4px 内边距，所以这里再用 4px 对齐到内容列。 */
+.dsf_banner { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 4px 6px; padding: 6px 8px; border-radius: var(--dsw-radius-sm, 8px); background: var(--dsw-alias-interactive-bg-hover); }
 .dsf_bannerText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .dsf_bannerError { background: var(--dsw-alias-interactive-bg-hover-danger); }
 .dsf_bannerError .dsf_bannerText { color: var(--dsw-alias-state-error-primary); }
-.dsf_cleanup { flex: none; height: 24px; padding: 0 8px; border: none; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 12px; line-height: 24px; cursor: pointer; }
+.dsf_cleanup { flex: none; height: 24px; padding: 0 8px; border: none; border-radius: var(--dsw-radius-sm, 8px); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 12px; line-height: 24px; cursor: pointer; }
 .dsf_cleanup:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.dsf_empty { padding: 16px 0; text-align: center; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.dsf_empty { padding: 16px 8px; text-align: center; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .dsf_error { color: var(--dsw-alias-state-error-primary); }
 `
     // 样式表只注入一次；返回清理函数供插件卸载时移除，避免热重载后残留。
@@ -301,7 +317,51 @@ window.__ModuleLoader__.load({
     // 收藏行有四种状态：正常、选中（当前正在查看）、已归档（仍可打开）、已失效（会话已删除，点不动）。
     // 判据抽成纯函数，便于自检覆盖。
     const GONE_HINT = '该会话已不存在，可点右侧删除清理'
-    const ARCHIVED_HINT = '该会话已归档，点击仍可打开'
+    const ARCHIVED_HINT = '该会话已归档，点击仍可打开（不会取消归档）'
+
+    /**
+     * 快照是否属于"按视图 retain 计数"这一代形状（0.1.7+）。
+     *
+     * 两个版本的判定字段完全不同，且不会同时出现：
+     *   0.1.5-rc.2：`SessionListState.current`（SessionSummary 上没有 retainedBy）。
+     *   0.1.7-rc.2：`byId[id].retainedBy.mainView`（`current` 已被移除）。
+     * 因此先认形状再取字段，避免在一份快照里混用两套语义（会造成"当前会话"
+     * 与"该行是否选中"给出互相矛盾的答案）。
+     * @param list - sessions.list 快照。
+     * @returns 是否应按 retain 计数判断当前会话。
+     */
+    function usesRetainCounters(list) {
+      for (const row of Object.values(list?.byId ?? {})) {
+        if (row?.retainedBy !== undefined) return true
+      }
+      return false
+    }
+
+    /**
+     * 单个会话是否为"当前会话"，跨 DSH 版本。
+     * @param list - sessions.list 快照。
+     * @param id - 会话 id。
+     * @returns 该会话是否为当前正在查看的会话。
+     */
+    function isCurrentSession(list, id) {
+      if (usesRetainCounters(list)) {
+        return (list.byId[id]?.retainedBy?.mainView ?? 0) > 0
+      }
+      return list?.current === id
+    }
+
+    /**
+     * 从 sessions.list 快照里取出"当前正在查看的会话" id，跨 DSH 版本。
+     * @param list - sessions.list 快照。
+     * @returns 当前会话 id，或 undefined。
+     */
+    function currentSessionId(list) {
+      if (!usesRetainCounters(list)) return list?.current
+      for (const [id, row] of Object.entries(list.byId)) {
+        if ((row?.retainedBy?.mainView ?? 0) > 0) return id
+      }
+      return undefined
+    }
 
     function rowState(row, { listReady, sessionsById, archivedIds, currentId }) {
       // 会话列表未就绪时不做"已失效"判定，避免启动瞬间把全部收藏标灰。
@@ -505,8 +565,9 @@ window.__ModuleLoader__.load({
       // 此时做失效判定会得出错误结论——所以把 favorites 就绪一并纳入。
       const sessionsReady = useSessions(s => s.phase === 'ready')
       const listReady = sessionsReady && favorites.ready && favorites.error === null
-      // 当前正在查看的会话：与原生侧边栏同源（list.current），用于行选中态。
-      const currentId = useSessions(s => s.current)
+      // 当前正在查看的会话：与原生侧边栏同源。0.1.5 读 list.current，
+      // 0.1.7 读 mainView retain 计数（该字段已被移除），见 isCurrentSession。
+      const currentId = useSessions(currentSessionId)
       const workspaces = useWorkspaces(s => s.items)
       const archivedIds = useWorkspaces(s => s.archivedSessionIds)
       const [open, setOpen] = useState(false)
@@ -533,6 +594,24 @@ window.__ModuleLoader__.load({
         return () => window.removeEventListener('resize', place)
       }, [open])
 
+      /**
+       * 展示一次打开的结果。
+       * null 表示成功（清空提示），字符串是要给用户看的原因。
+       * open() 目前是同步的，但仍接受 Promise 形状：宿主契约若改回异步，
+       * 这里照样收敛，连意外 reject 也抬到界面上，不留静默失败。
+       * @param outcome - onOpen 的返回值：null / 原因字符串，或它们的 Promise。
+       */
+      const showNotice = (outcome) => {
+        if (outcome !== null && typeof outcome?.then === 'function') {
+          outcome.then(
+            reason => setNotice(reason ?? null),
+            error => setNotice(`无法打开该会话：${error?.message ?? String(error)}`),
+          )
+          return
+        }
+        setNotice(outcome ?? null)
+      }
+
       const title = (row) => sessionsById[row.sessionId]?.displayTitle ?? row.title
       const goneIds = favorites.rows
         .filter(row => rowState(row, { listReady, sessionsById, archivedIds }).gone)
@@ -556,8 +635,7 @@ window.__ModuleLoader__.load({
           // 成功打开也不关闭弹出层——只有关闭按钮能关。
           onClick: () => {
             if (gone) return
-            // onOpen 返回 null 表示成功，否则是要展示给用户的原因。
-            setNotice(onOpen(row.sessionId) ?? null)
+            showNotice(onOpen(row.sessionId))
           },
         },
           React.createElement('span', { className: 'dsf_rowStar' }, starIcon(true, 14)),
@@ -640,6 +718,10 @@ window.__ModuleLoader__.load({
             style: { left: anchor.left, bottom: anchor.bottom },
             'aria-label': '收藏夹',
           },
+            // 面色层：0.1.7 的菜单面色是半透明的，必须由这一层（配 backdrop-filter）
+            // 单独绘制；直接铺在 .dsf_panel 上会透出侧边栏内容（详见样式表注释）。
+            // data-menu-material 与原生 MenuSurface 一致，便于主题侧按面型重绑描边色。
+            React.createElement('span', { className: 'dsf_panelMaterial', 'data-menu-material': 'translucent', 'aria-hidden': true }),
             React.createElement('header', { className: 'dsf_header' },
               React.createElement('span', { className: 'dsf_title' }, '收藏夹'),
               React.createElement('button', {
@@ -793,15 +875,26 @@ window.__ModuleLoader__.load({
       }
     }
 
-    // ---------- 归档会话导航适配 ----------
-    // DSH 的 UiWorkspaceService.watchNavigation() 会在每次会话/工作区列表变化时
-    // 调用 clearArchivedCurrent()：只要"当前会话"落在 archivedSessionIds 里，就立刻
-    // sessions.clear()。因此对归档会话调用 sessions.open() 会被马上撤销，表现为
-    // "点了打不开"。官方恢复入口（workspaces.unarchiveSession）在 0.1.6+ 才有。
-    // 这里只对"本次显式点击的那个 id"让 clearArchivedCurrent 返回 false，
-    // 其余归档清理行为原样保留 —— 本插件自带这套适配，**不依赖任何其它插件**
-    // （例如 @michengai/dsh-archive-manager 装不装都一样）。
+    // ---------- 会话打开 / 归档会话导航适配（跨 DSH 版本） ----------
+    // 打开会话的官方动词在两个版本里不同：
+    //   0.1.5-rc.2：`sessions.open(id)`（"选中当前会话"），`uiWorkspace.openSession` 也已存在。
+    //   0.1.7-rc.2：`sessions.open` 已被移除，导航归 ui-workspace 所有，只剩
+    //               `uiWorkspace.openSession(id)`；`binding()` 也收紧为"只对已 retain 的
+    //               generation 返回"。
+    // 因此这里统一走 `uiWorkspace.openSession`（0.1.5 起就有），仅在拿不到时退回
+    // `sessions.open`。
+    //
+    // 归档会话另有一层：DSH 的 UiWorkspaceService.watchNavigation() 会在每次会话/工作区
+    // 列表变化时调用 clearArchivedCurrent()，只要"当前会话"落在 archivedSessionIds 里就
+    // 立刻清掉，表现为"点了打不开"。
+    //
+    // 本插件的处理是**只读式打开**：只放行"本次显式点击的那一个归档会话"，让它成为
+    // 当前会话；**不**调用官方 unarchiveSession，因此打开后该会话仍是"已归档"。
+    // 归档状态的改变只有用户显式「取消归档」才会发生（与 DSH 原生一致）。
+    //
+    // 这套适配自带，**不依赖任何其它插件**（例如 @michengai/dsh-archive-manager）。
     const ARCHIVED_OPEN_FAILED = '该会话已归档，当前 DSH 版本无法直接打开'
+    const OPEN_UNAVAILABLE = '当前 DSH 版本没有可用的会话打开入口，无法打开'
 
     const archivedSessionIds = workspaces => workspaces.list.getSnapshot().archivedSessionIds
 
@@ -821,12 +914,29 @@ window.__ModuleLoader__.load({
       let disposed = false
 
       const archived = id => archivedSessionIds(workspaces).includes(id)
-      const viewing = id => {
-        const list = sessions.list.getSnapshot()
-        // 新版 DSH 用按视图的 retain 计数表达"谁是当前会话"；旧版只有 current。
-        const retained = list.byId[id]?.retainedBy?.mainView
-        if (typeof retained === 'number') return retained > 0
-        return list.current === id
+      // 与行选中态共用同一套跨版本判据（retain 计数优先，退回 current）。
+      const viewing = id => isCurrentSession(sessions.list.getSnapshot(), id)
+
+      /**
+       * 打开（选中）一个会话，跨 DSH 版本。
+       *
+       * 0.1.5-rc.2：`sessions.open(id)` 是唯一的选择写入动词（`list.current` 的
+       * 写入侧私有，只由它和 clear 驱动；`uiWorkspace.openSession` 内部同样落到它），
+       * 因此有它就沿用它，保持既有行为不变。
+       * 0.1.7-rc.2：`sessions.open` 已被移除，导航归 ui-workspace 所有，改用
+       * `uiWorkspace.openSession(id)`。两者都没有时如实报错，不静默无反应。
+       * @param sessionId - 目标会话 id。
+       */
+      const openNow = (sessionId) => {
+        if (typeof sessions.open === 'function') {
+          sessions.open(sessionId)
+          return
+        }
+        const uiWorkspace = ctx.get('uiWorkspace')
+        if (typeof uiWorkspace?.openSession !== 'function') {
+          throw new Error(OPEN_UNAVAILABLE)
+        }
+        uiWorkspace.openSession(sessionId)
       }
 
       /** 打补丁；拿不到服务时返回 false（等待后续重试）。 */
@@ -865,24 +975,39 @@ window.__ModuleLoader__.load({
       install()
 
       /**
-       * 没有补丁时的唯一正确姿势：**不要假装成功**。
+       * 补丁打不上时的唯一正确姿势：**不要假装成功**。
        *
        * 归档会话在原生语义下会被 watchNavigation 的 clearArchivedCurrent() 清掉，
-       * 而那次清理发生在我们返回之后的某一个微任务里 —— 此刻立刻读 current 一定是
+       * 而那次清理发生在我们返回之后的某一个微任务里 —— 此刻立刻读当前会话一定是
        * "还在"，据此返回成功就是撒谎，用户随后会看到会话自己跳走（这正是原先
-       * 「归档会话打不开」的现象）。所以归档会话直接给出可见原因，不碰 sessions.open；
+       * 「归档会话打不开」的现象）。所以归档会话直接给出可见原因，不碰打开入口；
        * 普通会话照常打开。
        */
       const openUnpatched = (sessionId) => {
         if (archived(sessionId)) throw new Error(ARCHIVED_OPEN_FAILED)
-        sessions.open(sessionId)
+        openNow(sessionId)
       }
 
       return {
         get installed() { return navigation !== undefined },
         /** 幂等安装；服务尚未出现时调用是安全的空操作。 */
         install,
+        /**
+         * 打开一个收藏会话。
+         *
+         * 返回值：null = 成功；字符串 = 给用户看的原因。
+         * 当前实现是同步的；若将来走异步路径也会返回 Promise<null | string>，
+         * 调用方两种都接受（弹出层里统一收敛）。
+         * @param sessionId - 目标会话 id。
+         * @returns null 或可见原因，见上。
+         */
         open(sessionId) {
+          // 归档会话**只读式打开**：不调用官方 unarchiveSession，因此打开后
+          // 会话仍是"已归档"，与 DSH 原生"取消归档"是两件独立的事。
+          //
+          // 于是所有版本都走同一条路：临时放行 clearArchivedCurrent，让本次显式
+          // 点击的那个归档会话能成为当前会话。补丁只在"放行目标仍是归档会话"
+          // 期间生效，其余归档清理行为原样保留。
           if (!install()) {
             openUnpatched(sessionId)
             return
@@ -901,7 +1026,7 @@ window.__ModuleLoader__.load({
           }
           allowed = sessionId
           try {
-            sessions.open(sessionId)
+            openNow(sessionId)
             // open 之后宿主若没把该会话保留为当前会话，说明补丁没起作用。
             if (!viewing(sessionId)) throw new Error(ARCHIVED_OPEN_FAILED)
           } catch (error) {
@@ -962,31 +1087,66 @@ window.__ModuleLoader__.load({
 
       // 重命名会话：走 DSH 官方的 per-session rename（与原生侧边栏完全同一条路径），
       // 成功后同步收藏里的标题副本。无效/未知会话按原生语义抛错，由对话框展示。
+      //
+      // 0.1.7 起 binding() 收紧为"只对已被 retain 的 generation 返回"（不延长生命周期），
+      // 因此未打开的收藏拿不到 binding；官方改名改为 sessions.using(...) 临时 retain 一次。
+      // 0.1.5 没有 using，退回 binding()，行为与原先一致。
       const renameSession = async (sessionId, title) => {
+        const throwIfRejected = (result) => {
+          if (!result.ok) throw new Error(result.error.message)
+        }
+        if (typeof ctx.sessions.using === 'function') {
+          // using 对未知 id 的报错文案由宿主决定；这里先给出与旧版一致的明确原因。
+          if (ctx.sessions.list.getSnapshot().byId[sessionId] === undefined) {
+            throw new Error(`unknown session "${sessionId}"`)
+          }
+          const result = await ctx.sessions.using(
+            sessionId,
+            { source: 'sessionFavorites' },
+            reference => reference.binding.session.rename(title),
+          )
+          throwIfRejected(result)
+          return
+        }
         const session = ctx.sessions.binding(sessionId)?.session
         if (session === undefined) throw new Error(`unknown session "${sessionId}"`)
-        const result = await session.rename(title)
-        if (!result.ok) throw new Error(result.error.message)
+        throwIfRejected(await session.rename(title))
       }
 
-      // sessions.open 对不在列表中的 id 会 fail loud；失效收藏（会话已被删除）
-      // 在这里静默跳过，而不是让点击抛错。
-      // 返回 null 表示成功，否则返回给用户看的原因（由弹出层渲染成提示条）。
+      // 打开入口对不在列表中的 id 会 fail loud（0.1.5 的 sessions.open 亦然）；
+      // 失效收藏（会话已被删除）在这里静默跳过，而不是让点击抛错。
+      // 返回 null 表示成功，否则返回给用户看的原因（由弹出层渲染成提示条）；
+      // 0.1.6+ 的归档路径是异步的，可能返回它们的 Promise。
       const openSession = (sessionId) => {
         if (ctx.sessions.list.getSnapshot().byId[sessionId] === undefined) {
           console.warn(`[session-favorites] session "${sessionId}" no longer exists; skipping open`)
           return GONE_HINT
         }
-        try {
-          navigation.open(sessionId)
-        } catch (error) {
+        const success = () => {
+          ctx.layout.selectPanel(null)
+          return null
+        }
+        const failure = (error) => {
           console.error('[session-favorites] open failed:', error)
           const reason = error?.message ?? String(error)
-          // 归档提示已经是面向用户的成品文案，不要再套一层前缀。
-          return reason === ARCHIVED_OPEN_FAILED ? reason : `无法打开该会话：${reason}`
+          // 归档/缺少入口的提示已经是面向用户的成品文案，不要再套一层前缀。
+          return reason === ARCHIVED_OPEN_FAILED || reason === OPEN_UNAVAILABLE
+            ? reason
+            : `无法打开该会话：${reason}`
         }
-        ctx.layout.selectPanel(null)
-        return null
+        try {
+          const outcome = navigation.open(sessionId)
+          // 异步路径：open() 以 null 表示成功，以字符串表示失败原因。
+          if (outcome !== null && typeof outcome?.then === 'function') {
+            return outcome.then(
+              reason => (reason === null || reason === undefined ? success() : reason),
+              failure,
+            )
+          }
+        } catch (error) {
+          return failure(error)
+        }
+        return success()
       }
 
       ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
@@ -1011,8 +1171,14 @@ window.__ModuleLoader__.load({
     }
 
     // 纯逻辑子集，仅供 scripts/smoke.mjs 与单测直接调用；运行时不消费。
-    const testing = { groupRows, rowState, sessionMention, base64UrlJson, GONE_HINT, ARCHIVED_HINT }
+    const testing = {
+      groupRows, rowState, sessionMention, base64UrlJson,
+      isCurrentSession, currentSessionId,
+      GONE_HINT, ARCHIVED_HINT, ARCHIVED_OPEN_FAILED, OPEN_UNAVAILABLE,
+    }
 
-    return { inject, apply, testing }
+    // styles 同时对外暴露：单测据此断言"面色只能由 .dsf_panelMaterial 画"
+    // 这类跨版本契约（0.1.7 的菜单面色是半透明的，铺错地方就会透出下层内容）。
+    return { inject, apply, testing, styles: CSS }
   },
 })

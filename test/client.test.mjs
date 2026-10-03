@@ -833,6 +833,248 @@ test('the cleanup dialog snapshots its target list when opened', async () => {
   assert.deepEqual(removedMany, [['g1', 'g2']], '确认后应清理快照中的两条')
 })
 
+// ---------- 0.1.7-rc.2 契约：sessions.open / list.current 已被移除 ----------
+
+/**
+ * 造一个 0.1.7 形状的夹具：ISessions 没有 open()，快照里没有 current，
+ * 打开会话归 uiWorkspace.openSession。归档会话靠 clearArchivedCurrent 补丁放行；
+ * 夹具如实模拟宿主语义（归档的当前会话会被清掉），因此"能打开且保持归档"
+ * 必须靠补丁本身成立。
+ * @param options - 覆盖项：archived 初始归档集合、clearArchived 行为。
+ * @returns 打开入口与观测记录。
+ */
+function mountModern({ archived = [], clearArchived } = {}) {
+  const opened = []
+  const unarchived = []
+  const panels = []
+  const state = { current: undefined, archived: [...archived] }
+  const nativeClear = clearArchived ?? function () {
+    // 真实宿主语义：当前会话落在归档集合里就把它清掉（返回 true）。
+    if (state.current !== undefined && state.archived.includes(state.current)) {
+      state.current = undefined
+      return true
+    }
+    return false
+  }
+  class ModernNavigation {
+    openSession(id) { opened.push(id); state.current = id }
+    unarchiveSession(id) {
+      unarchived.push(id)
+      state.archived = state.archived.filter(x => x !== id)
+      return Promise.resolve()
+    }
+    clearArchivedCurrent() { return nativeClear.call(this) }
+  }
+  const navigation = new ModernNavigation()
+
+  const plugin = captured.factory((name) => {
+    if (name === 'react') return React
+    throw new Error(`unexpected require: ${name}`)
+  })
+  const registered = []
+  plugin.apply({
+    get: (key) => (key === 'remote.favorites' ? { list: () => Promise.resolve({ ok: true, value: [] }) }
+      : key === 'uiWorkspace' ? navigation : undefined),
+    remote: { $mount: () => Promise.resolve() },
+    sessions: {
+      // 0.1.7：binding() 只对已 retain 的 generation 返回，官方改名改用 using()。
+      binding: () => undefined,
+      using: (_id, _options, operation) => Promise.resolve(operation({
+        binding: { session: { rename: () => Promise.resolve({ ok: true, value: { title: 'New', seq: 1 } }) } },
+      })),
+      list: {
+        getSnapshot: () => ({
+          byId: {
+            alive: { retainedBy: state.current === 'alive' ? { mainView: 1 } : {} },
+            archived: { retainedBy: state.current === 'archived' ? { mainView: 1 } : {} },
+          },
+          phase: 'ready',
+        }),
+      },
+    },
+    workspaces: { list: { getSnapshot: () => ({ archivedSessionIds: state.archived }) } },
+    layout: { selectPanel: (id) => panels.push(id) },
+    inputTriggers: { registerSource: () => () => {} },
+    slots: {
+      inject: (_k, cb) => cb(),
+      register: (opts, component) => { registered.push({ opts, component }); return () => {} },
+    },
+    effect: (fn) => fn(),
+    inject: (_keys, cb) => { cb(); return () => {} },
+  })
+  return { navigation, opened, unarchived, panels, state, face: registered[0].opts.inject(), ModernNavigation }
+}
+
+test('opens through uiWorkspace.openSession when sessions.open is gone (0.1.7)', () => {
+  const { opened, panels, face, state, navigation, ModernNavigation } = mountModern()
+
+  assert.equal(face.onOpen('alive'), null)
+  assert.deepEqual(opened, ['alive'], '应走 uiWorkspace.openSession')
+  assert.deepEqual(panels, [null], '打开后收起侧边面板')
+  // 普通会话无需放行，补丁仍在但不得改变原生行为
+  assert.equal(state.current, 'alive')
+  // 选中态来自 retain 计数（list.current 已不存在）
+  assert.notEqual(navigation.clearArchivedCurrent, ModernNavigation.prototype.clearArchivedCurrent)
+})
+
+test('opens an archived favorite without un-archiving it (0.1.6+)', () => {
+  const { opened, unarchived, face, state } = mountModern({ archived: ['archived'] })
+
+  // 归档会话现在走同步只读路径：不调 unarchiveSession，因此不再是 Promise。
+  const outcome = face.onOpen('archived')
+  assert.equal(outcome, null, '打开成功应返回 null（同步）')
+  assert.deepEqual(opened, ['archived'], '仍须打开该会话')
+  assert.deepEqual(unarchived, [], '不得调用 unarchiveSession')
+  assert.deepEqual(state.archived, ['archived'], '打开后该会话必须仍是已归档')
+  assert.equal(state.current, 'archived', '归档会话必须保持打开，不被 clearArchivedCurrent 清掉')
+})
+
+test('an archived session stays open even when the host clears archived currents', () => {
+  const { face, state, navigation } = mountModern({ archived: ['archived'] })
+
+  assert.equal(face.onOpen('archived'), null)
+  assert.equal(state.current, 'archived')
+
+  // 列表变化会触发 watchNavigation → clearArchivedCurrent：放行目标不得被清掉。
+  assert.equal(navigation.clearArchivedCurrent(), false, '放行的归档会话不得被清理')
+  assert.equal(state.current, 'archived', '归档会话必须仍然打开')
+  assert.deepEqual(state.archived, ['archived'], '打开不得改变归档状态')
+
+  // 放行只覆盖"当前正查看的那个归档会话"；换成别的归档会话立刻回到原生清理。
+  state.current = 'other'
+  state.archived = ['other']
+  assert.equal(navigation.clearArchivedCurrent(), true, '非放行目标应恢复原生清理')
+  assert.equal(state.current, undefined, '恢复原生清理行为')
+})
+
+test('an archived favorite opens even when the host also offers unarchiveSession', () => {
+  const { face, state, unarchived } = mountModern({ archived: ['archived'] })
+
+  assert.equal(face.onOpen('archived'), null)
+  assert.deepEqual(unarchived, [], '存在 unarchiveSession 时也不得自动取消归档')
+  assert.deepEqual(state.archived, ['archived'], '归档标记必须原样保留')
+})
+
+test('rename falls back to sessions.using when binding is unavailable (0.1.7)', async () => {
+  const { face } = mountModern()
+  // 0.1.7 的 binding() 对未 retain 的会话返回 undefined；using() 是官方替代路径。
+  await face.onRename('alive', '新标题')
+  await assert.rejects(() => face.onRename('ghost', 'X'), /unknown session/)
+})
+
+test('currentSessionId reads current on 0.1.5 and the retain counter on 0.1.7', () => {
+  const plugin = captured.factory((name) => {
+    if (name === 'react') return React
+    throw new Error(`unexpected require: ${name}`)
+  })
+  const { currentSessionId, isCurrentSession } = plugin.testing
+
+  // 0.1.5：快照自带 current
+  assert.equal(currentSessionId({ byId: { a: {} }, current: 'a' }), 'a')
+  assert.equal(currentSessionId({ byId: { a: {} }, current: undefined }), undefined)
+  // 0.1.7：没有 current，靠按视图的 retain 计数
+  assert.equal(currentSessionId({ byId: { a: { retainedBy: {} }, b: { retainedBy: { mainView: 1 } } } }), 'b')
+  assert.equal(isCurrentSession({ byId: { b: { retainedBy: { mainView: 1 } } } }, 'b'), true)
+  // 形状一旦是 retain 计数，就不得再退回 current（否则两套语义会互相矛盾）
+  assert.equal(isCurrentSession({ byId: { b: { retainedBy: {} } }, current: 'b' }, 'b'), false)
+  assert.equal(currentSessionId({ byId: { a: { retainedBy: {} } }, current: 'a' }), undefined)
+})
+
+// ---------- 弹出层面色：0.1.7 的菜单面色是半透明的，必须由独立层绘制 ----------
+
+test('the panel paints its surface in a dedicated material layer (0.1.7 menu convention)', () => {
+  // 0.1.7 把菜单表层的颜色改成半透明（--dsw-menu-surface-fill），并要求配
+  // backdrop-filter 的模糊；直接铺在卡片上会变成"透出侧边栏内容"的灰玻璃。
+  // 这个测试把契约钉死：卡片自身透明 + 一个 z-index:-1 的面色层 + 带回退链。
+  const plugin = captured.factory((name) => {
+    if (name === 'react') return React
+    throw new Error(`unexpected require: ${name}`)
+  })
+  const css = plugin.styles
+  assert.equal(typeof css, 'string', 'plugin 必须暴露样式表字符串供自检')
+
+  // 卡片本身不画面色（否则半透明色会直接透出下层内容）。
+  const panel = css.match(/\.dsf_panel \{[^}]*\}/)?.[0]
+  assert.ok(panel, 'css 应有 .dsf_panel 规则')
+  assert.match(panel, /background:\s*transparent/, '.dsf_panel 自身不得铺面色')
+
+  // 面色层：绝对定位铺满 + z-index:-1 + 不吃指针事件。
+  const material = css.match(/\.dsf_panelMaterial \{[^}]*\}/)?.[0]
+  assert.ok(material, 'css 应有 .dsf_panelMaterial 规则')
+  assert.match(material, /position:\s*absolute/)
+  assert.match(material, /inset:\s*0/)
+  assert.match(material, /z-index:\s*-1/)
+  assert.match(material, /pointer-events:\s*none/)
+  // 回退链：新版半透明面色 → 旧版菜单色 → 主题层。
+  assert.match(material, /var\(--dsw-menu-surface-fill,\s*var\(--dsw-specific-menu,\s*var\(--dsw-alias-bg-layer-2\)\)\)/,
+    '面色必须有 0.1.5 可用的回退，否则旧版会没有背景')
+  assert.match(material, /backdrop-filter:\s*var\(--dsw-menu-backdrop-filter,\s*none\)/,
+    '模糊必须带 no-op 回退（0.1.5 没有该变量）')
+
+  // 隔离层：z-index:-1 的色层需要父级建立层叠上下文，否则会钻到页面其他内容下面。
+  assert.match(panel, /isolation:\s*isolate/)
+})
+
+test('the panel renders a material element the stylesheet can target', () => {
+  globalThis.document = {
+    addEventListener: () => {}, removeEventListener: () => {}, body: {},
+    querySelector: () => null, createElement: () => ({ dataset: {}, textContent: '' }),
+    head: { appendChild: () => {} },
+  }
+  globalThis.window = {
+    __ModuleLoader__: globalThis.window.__ModuleLoader__,
+    innerHeight: 800, addEventListener: () => {}, removeEventListener: () => {},
+  }
+
+  const registered = []
+  const stateful = makeStatefulReact()
+  const plugin = captured.factory((name) => {
+    if (name === 'react' || name === 'react-dom') return stateful
+    throw new Error(`unexpected require: ${name}`)
+  })
+  plugin.apply({
+    get: (key) => (key === 'remote.favorites'
+      ? {
+        list: () => Promise.resolve({ ok: true, value: [] }),
+        add: () => Promise.resolve({ ok: true, value: [] }),
+        unfavorite: () => Promise.resolve({ ok: true, value: [] }),
+        rename: () => Promise.resolve({ ok: true, value: [] }),
+      }
+      : key === 'uiWorkspace' ? new (class { clearArchivedCurrent() { return true } })() : undefined),
+    remote: { $mount: () => Promise.resolve() },
+    sessions: { open: () => {}, list: { getSnapshot: () => ({ byId: { alive: {} }, current: undefined }) } },
+    workspaces: { list: { getSnapshot: () => ({ archivedSessionIds: [] }) } },
+    layout: { selectPanel: () => {} },
+    inputTriggers: { registerSource: () => () => {} },
+    slots: {
+      inject: (_k, cb) => cb(),
+      register: (opts, component) => { registered.push({ opts, component }); return () => {} },
+    },
+    effect: (fn) => fn(),
+  })
+
+  const store = { rows: [{ sessionId: 'alive', title: 'A' }], byId: new Map([['alive', {}]]), ready: true, error: null }
+  const read = stateful.__render(() => registered[0].component({
+    wide: true,
+    useFavorites: (sel) => sel(store),
+    useSessions: (sel) => sel({ byId: { alive: { displayTitle: 'A' } }, current: undefined, phase: 'ready' }),
+    useWorkspaces: (sel) => sel({ items: [], archivedSessionIds: [] }),
+    onOpen: () => null,
+    onRemove: () => Promise.resolve(),
+    onRemoveMany: () => Promise.resolve(),
+    onRename: () => Promise.resolve(),
+  }))
+
+  findByLabel(read(), '收藏夹').props.onClick()
+  const panel = flatten(read()).find(n => n.props?.['aria-label'] === '收藏夹' && n.type === 'section')
+  assert.ok(panel, '弹出层应渲染')
+  const material = flatten(panel).find(n => n.props?.className === 'dsf_panelMaterial')
+  assert.ok(material, '弹出层内必须有面色层元素')
+  // 与原生 MenuSurface 同构：主题按 [data-menu-material] 重绑描边色。
+  assert.equal(material.props['data-menu-material'], 'translucent')
+  assert.equal(material.props['aria-hidden'], true)
+})
+
 test('dialog submission still settles under a StrictMode effect replay', async () => {
   // StrictMode 开发期会「挂载 → cleanup → 再挂载」。若卸载守卫只清不重设，
   // alive 会永久为 false，之后所有提交都不再 setBusy(false)/onClose/显示错误，

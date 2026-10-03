@@ -13,10 +13,20 @@
     "src",
     "cordis.patch.yml",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/smoke.mjs && node test/schema.test.mjs && node test/favorites-core.test.mjs && node test/client.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hiuga0321/dsh-session-favorites.git"
+  },
+  "homepage": "https://github.com/hiuga0321/dsh-session-favorites#readme",
+  "bugs": {
+    "url": "https://github.com/hiuga0321/dsh-session-favorites/issues"
   },
   "dsh": {
     "bundle": {
@@ -43,9 +53,10 @@
     "@deepseek-ai/dsh-workspace": "0.1.5-rc.2"
   },
   "license": "MIT",
+  "author": "hiuga0321",
   "engines": {
-    "dsh": "^0.1.5-rc.2",
-    "node": ">=24"
+    "dsh": ">=0.1.5-rc.2 <0.3.0",
+    "node": ">=22.15"
   },
   "keywords": [
     "dsh",

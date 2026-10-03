@@ -36,3 +36,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# 本地诊断脚手架（Windows 沙箱 ACL 排查产物、临时 npm 缓存）
+.acl-recovery/
+.npm-cache/

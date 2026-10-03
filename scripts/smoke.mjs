@@ -109,6 +109,9 @@ const favoritesNs = {
   unfavorite: () => Promise.resolve({ ok: true, value: [] }),
   rename: () => Promise.resolve({ ok: true, value: [] }),
 }
+// ---- 契约形状：以下若干夹具复刻 0.1.5-rc.2 的客户端契约 ----
+// 0.1.5：`sessions.open(id)` 是"选中当前会话"的动词，`list.current` 直接给出当前会话，
+// 归档会话只能靠 clearArchivedCurrent 补丁放行。0.1.7 的契约形状在文件末尾单独覆盖。
 let navigation = makeNavigation()
 let archivedIds = []
 const ctx = {
@@ -518,5 +521,102 @@ assert.equal(none.length, 0)
 const picked = live.onPick({ candidate: all[0] })
 assert.equal(picked.insert.appearance, 'session')
 assert.equal(picked.insert.ref, '@[Research](dsh-session:InNvdXJjZSI)')
+
+// ---- 当前会话判据：跨两种契约形状 ----
+{
+  const { isCurrentSession, currentSessionId } = plugin.testing
+  // 0.1.5 形状：只有 current
+  assert.equal(currentSessionId({ byId: { a: {} }, current: 'a' }), 'a')
+  assert.equal(currentSessionId({ byId: { a: {} }, current: undefined }), undefined)
+  // 0.1.7 形状：current 已移除，靠按视图的 retain 计数
+  assert.equal(currentSessionId({ byId: { a: { retainedBy: {} }, b: { retainedBy: { mainView: 1 } } } }), 'b')
+  assert.equal(currentSessionId({ byId: { a: { retainedBy: {} } } }), undefined)
+  assert.equal(isCurrentSession({ byId: { b: { retainedBy: { mainView: 1 } } } }, 'b'), true)
+  assert.equal(isCurrentSession({ byId: { b: { retainedBy: {} } } }, 'b'), false)
+  // 形状一旦是 retain 计数，就不得再退回 current（否则两套语义会互相矛盾）
+  assert.equal(isCurrentSession({ byId: { b: { retainedBy: {} } }, current: 'b' }, 'b'), false)
+  assert.equal(currentSessionId({ byId: { a: { retainedBy: {} } }, current: 'a' }), undefined)
+}
+
+// ================= 0.1.7-rc.2 的客户端契约形状 =================
+// 0.1.7：`sessions.open` 与 `list.current` 都已移除；打开会话归
+// `uiWorkspace.openSession`，当前会话由 retain 计数表达。归档会话**只读式打开**：
+// 只放行本次点击的归档会话，绝不调用官方 `unarchiveSession`，因此打开后仍是已归档。
+{
+  const opened = []
+  const unarchived = []
+  const panels = []
+  const state = { current: undefined, archivedIds: ['archived'] }
+  class ModernNavigation {
+    openSession(id) { opened.push(id); state.current = id }
+    unarchiveSession(id) {
+      unarchived.push(id)
+      state.archivedIds = state.archivedIds.filter(x => x !== id)
+      return Promise.resolve()
+    }
+    // 真实宿主语义：归档的当前会话会被清掉（返回 true）
+    clearArchivedCurrent() {
+      if (state.current !== undefined && state.archivedIds.includes(state.current)) {
+        state.current = undefined
+        return true
+      }
+      return false
+    }
+  }
+  const modernNav = new ModernNavigation()
+  const modernRegistered = []
+  const modernCtx = {
+    get: (key) => (key === 'remote.favorites' ? favoritesNs : key === 'uiWorkspace' ? modernNav : undefined),
+    remote: { $mount: (c) => mounted.push(c) },
+    // 关键：没有 open —— 0.1.7 的 ISessions 已删除它
+    sessions: {
+      using: (_id, _opts, fn) => Promise.resolve(fn({ binding: { session: { rename: () => Promise.resolve({ ok: true, value: {} }) } } })),
+      list: {
+        getSnapshot: () => ({
+          byId: {
+            alive: { retainedBy: state.current === 'alive' ? { mainView: 1 } : {} },
+            archived: { retainedBy: state.current === 'archived' ? { mainView: 1 } : {} },
+          },
+          phase: 'ready',
+        }),
+      },
+    },
+    workspaces: { list: { getSnapshot: () => ({ archivedSessionIds: state.archivedIds }) } },
+    layout: { selectPanel: (id) => panels.push(id) },
+    inputTriggers: { registerSource: () => () => {} },
+    slots: { inject: (_k, cb) => cb(), register: (opts, comp) => { modernRegistered.push({ opts, comp }); return () => {} } },
+    effect: (fn) => fn(),
+    inject: (_keys, cb) => { cb(); return () => {} },
+  }
+  captured.factory((name) => { if (name === 'react') return React; throw new Error(name) }).apply(modernCtx)
+  const modernOpen = modernRegistered[0].opts.inject().onOpen
+
+  // 普通会话：直接走 uiWorkspace.openSession，并收起面板
+  assert.equal(modernOpen('alive'), null, '0.1.7 下普通收藏必须能打开')
+  assert.deepEqual(opened, ['alive'])
+  assert.deepEqual(panels, [null], '打开后应收起侧边面板')
+  // 打开后该行判为选中（靠 retain 计数，而不是已不存在的 current）
+  assert.equal(plugin.testing.currentSessionId(modernCtx.sessions.list.getSnapshot()), 'alive')
+
+  // 归档会话：只读式打开 —— 能打开、保持归档、绝不取消归档
+  const archivedOpen = modernOpen('archived')
+  assert.equal(archivedOpen, null, '归档收藏应当同步打开成功')
+  assert.deepEqual(opened, ['alive', 'archived'], '归档会话必须能打开')
+  assert.deepEqual(unarchived, [], '绝不调用 unarchiveSession')
+  assert.deepEqual(state.archivedIds, ['archived'], '打开后该会话必须仍是已归档')
+  assert.equal(state.current, 'archived', '归档会话必须保持打开')
+
+  // 随后宿主清理归档当前会话时，放行目标不得被清掉；换成别的归档会话则恢复原生清理
+  assert.equal(modernNav.clearArchivedCurrent(), false, '放行的归档会话不得被清理')
+  assert.equal(state.current, 'archived', '归档会话必须仍然打开')
+  state.current = 'other'
+  state.archivedIds = ['other']
+  assert.equal(modernNav.clearArchivedCurrent(), true, '非放行目标应恢复原生清理')
+
+  // 失效会话照旧静默跳过
+  opened.length = 0
+  assert.equal(modernOpen('ghost'), plugin.testing.GONE_HINT)
+  assert.deepEqual(opened, [])
+}
 
 console.log('SMOKE OK')
