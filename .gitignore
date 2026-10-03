@@ -12,6 +12,10 @@ coverage/
 .vite/
 *.tsbuildinfo
 
+# npm 打包产物（npm pack / npm publish 生成，进 npm 的是它，不是仓库）
+*.tgz
+*.tar.gz
+
 # 测试与调试输出
 *.log
 npm-debug.log*
@@ -32,10 +36,18 @@ cordis.patch.yml.bak*
 
 # 编辑器 / 系统
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 
 # 本地诊断脚手架（Windows 沙箱 ACL 排查产物、临时 npm 缓存）
 .acl-recovery/
