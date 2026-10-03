@@ -49,6 +49,11 @@ Desktop.ini
 *.swo
 *~
 
+# 本地设计/实施文档（内部规划稿，随仓库发布无意义）
+session-favorites-spec.md
+session-favorites-design.md
+IMPLEMENTATION-PLAN.md
+
 # 本地诊断脚手架（Windows 沙箱 ACL 排查产物、临时 npm 缓存）
 .acl-recovery/
 .npm-cache/
