@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-favorites",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH 会话收藏夹插件：收藏会话、按工作区分组、@ 引入、多设备一致",
   "type": "module",
   "main": "src/index.js",
